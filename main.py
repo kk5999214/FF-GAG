@@ -89,7 +89,7 @@ REGION_MAP = {
 }
 
 # ==========================================
-# BITTU__DEV : FORGE ENGINE (V2 + AUTO-ACTIVATE)
+# BITTU__DEV : FORGE ENGINE (CUSTOMIZED)
 # ==========================================
 def execute_forge(region: str, name_pref: str):
     region = region.upper()
@@ -99,14 +99,19 @@ def execute_forge(region: str, name_pref: str):
     login_url = REGION_MAP[region]["login"]
     lang = REGION_MAP[region]["lang"]
 
+    # 1. Name Generator (Super Digits Max 12 Chars)
+    super_digits = '⁰¹²³⁴⁵⁶⁷⁸⁹'
     if len(name_pref) >= 12:
         name = name_pref[:12]
     else:
-        name = name_pref + ''.join(random.choice('0123456789') for _ in range(12 - len(name_pref)))
+        needed_digits = 12 - len(name_pref)
+        name = name_pref + ''.join(random.choice(super_digits) for _ in range(needed_digits))
     
-    password = f"BITTU_{''.join(random.choice(string.ascii_letters + string.digits) for _ in range(9)).upper()}"
+    # 2. Password Generator
+    random_part = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(9)).upper()
+    password = f"BITTU__DEV-{random_part}"
 
-    # 1. Register Guest (WAF Bypass)
+    # 3. Register Guest (WAF Bypass)
     reg_url = "https://100067.connect.garena.com/api/v2/oauth/guest:register"
     reg_payload = {"app_id": 100067, "client_type": 2, "password": password, "source": 2}
     reg_headers = {
@@ -122,7 +127,7 @@ def execute_forge(region: str, name_pref: str):
         if not uid: return {"error": "UID missing."}
     except Exception as e: return {"error": f"Request Failed: {str(e)}"}
 
-    # 2. Token Grant
+    # 4. Token Grant
     token_headers = {
         "Accept-Encoding": "gzip", "Connection": "Keep-Alive",
         "Content-Type": "application/x-www-form-urlencoded",
@@ -140,7 +145,7 @@ def execute_forge(region: str, name_pref: str):
         access_token = r2.json().get("access_token")
     except Exception as e: return {"error": f"Token Grant Error: {str(e)}"}
 
-    # 3. Major Register (Region Locking)
+    # 5. Major Register (Region Locking)
     encoded_dict = encode_string(open_id)
     field = codecs.decode(to_unicode_escaped(encoded_dict['field_14']), 'unicode_escape').encode('latin1')
     
@@ -160,9 +165,9 @@ def execute_forge(region: str, name_pref: str):
 
     try:
         requests.post(f"{login_url}/MajorRegister", headers=major_headers, data=encrypted_payload, verify=False, timeout=10)
-    except: pass # Region locks even if it times out
+    except: pass
 
-    # 4. Major Login (Auto-Activation & JWT Extraction)
+    # 6. Major Login (Auto-Activation & JWT Extraction)
     login_payload_raw = b'\x1a\x132025-08-30 05:19:21"\tfree fire(\x01:\x081.114.13B2Android OS 9 / API-28 (PI/rel.cjw.20220518.114133)J\x08HandheldR\nATM MobilsZ\x04WIFI`\xb6\nh\xee\x05r\x03300z\x1fARMv7 VFPv3 NEON VMH | 2400 | 2\x80\x01\xc9\x0f\x8a\x01\x0fAdreno (TM) 640\x92\x01\rOpenGL ES 3.2\x9a\x01+Google|dfa4ab4b-9dc4-454e-8065-e70c733fa53f\xa2\x01\x0e105.235.139.91\xaa\x01\x02' + lang.encode("ascii") + b'\xb2\x01 1d8ec0240ede109973f3321b9354b44d\xba\x01\x014\xc2\x01\x08Handheld\xca\x01\x10Asus ASUS_I005DA\xea\x01@afcfbf13334be42036e4f742c80b956344bed760ac91b3aff9b607a610ab4390\xf0\x01\x01\xca\x02\nATM Mobils\xd2\x02\x04WIFI\xca\x03 7428b253defc164018c604a1ebbfebdf\xe0\x03\xa8\x81\x02\xe8\x03\xf6\xe5\x01\xf0\x03\xaf\x13\xf8\x03\x84\x07\x80\x04\xe7\xf0\x01\x88\x04\xa8\x81\x02\x90\x04\xe7\xf0\x01\x98\x04\xa8\x81\x02\xc8\x04\x01\xd2\x04=/data/app/com.dts.freefireth-PdeDnOilCSFn37p1AH_FLg==/lib/arm\xe0\x04\x01\xea\x04_2087f61c19f57f2af4e7feff0b24d9d9|/data/app/com.dts.freefireth-PdeDnOilCSFn37p1AH_FLg==/base.apk\xf0\x04\x03\xf8\x04\x01\x8a\x05\x0232\x9a\x05\n2019118692\xb2\x05\tOpenGLES2\xb8\x05\xff\x7f\xc0\x05\x04\xe0\x05\xf3F\xea\x05\x07android\xf2\x05pKqsHT5ZLWrYljNb5Vqh//yFRlaPHSO9NWSQsVvOmdhEEn7W+VHNUK+Q+fduA3ptNrGB0Ll0LRz3WW0jOwesLj6aiU7sZ40p8BfUE/FI/jzSTwRe2\xf8\x05\xfb\xe4\x06\x88\x06\x01\x90\x06\x01\x9a\x06\x014\xa2\x06\x014\xb2\x06"GQ@O\x00\x0e^\x00D\x06UA\x0ePM\r\x13hZ\x07T\x06\x0cm\\V\x0ejYV;\x0bU5'
     login_payload_raw = login_payload_raw.replace(b'afcfbf13334be42036e4f742c80b956344bed760ac91b3aff9b607a610ab4390', access_token.encode())
     login_payload_raw = login_payload_raw.replace(b'1d8ec0240ede109973f3321b9354b44d', open_id.encode())
@@ -172,8 +177,6 @@ def execute_forge(region: str, name_pref: str):
     jwt_token = "NOT_FOUND_OR_FAILED"
     try:
         r4 = requests.post(f"{login_url}/MajorLogin", headers=major_headers, data=final_login_payload, verify=False, timeout=10)
-        
-        # Byte scraper to bypass protobuf decoder and snatch the JWT directly
         res_text = r4.text
         idx = res_text.find("eyJhbGciOiJIUzI1NiIs")
         if idx != -1:
@@ -186,18 +189,21 @@ def execute_forge(region: str, name_pref: str):
     except Exception as e:
         jwt_token = f"ERROR: {str(e)}"
 
+    # ==========================================
+    # CUSTOMIZED API RESPONSE
+    # ==========================================
+    # To maintain the order explicitly requested (player_name, player_uid, password, tokens, developer)
+    # Note: Python 3.7+ dictionaries maintain insertion order
     return {
-        "success": True,
-        "owner": "BITTU__DEV",
-        "region": region,
-        "uid": str(uid),
+        "player_name": name,
+        "player_uid": str(uid),
         "password": password,
-        "game_name": name,
         "tokens": {
             "access_token": access_token,
             "open_id": open_id,
             "activated_jwt": jwt_token
-        }
+        },
+        "developer": "BITTU__DEV"
     }
 
 # ==========================================
@@ -209,17 +215,19 @@ def api_generate_account():
     name_pref = request.args.get("name_pref", "BITTU")
     
     result = execute_forge(reg.upper(), name_pref)
-    if "error" in result: return jsonify(result), 500
+    
+    if "error" in result:
+        return jsonify(result), 500
+        
     return jsonify(result), 200
 
 @app.route("/", methods=["GET"])
 def root():
     return jsonify({
-        "status": "BITTU__DEV Forge API Live (Auto-Activator Engine) 💀",
-        "endpoint": "/api/gen?reg=IND&name_pref=BITTU.DEV"
+        "status": "BITTU__DEV Forge API Live (Custom Output Engine) 💀",
+        "endpoint": "/api/gen?reg=IND&name_pref=BITTU"
     })
 
 if __name__ == "__main__":
-    # Heroku requires dynamic port binding
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
