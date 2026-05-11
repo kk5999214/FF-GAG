@@ -1,6 +1,4 @@
 from fastapi import FastAPI, HTTPException
-import hmac
-import hashlib
 import requests
 import string
 import random
@@ -11,7 +9,7 @@ import urllib3
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-app = FastAPI(title="BITTU__DEV Account Forge API")
+app = FastAPI(title="BITTU__DEV Account Forge API v2")
 
 # ==========================================
 # BITTU__DEV : CORE ENCRYPTION
@@ -72,7 +70,7 @@ def to_unicode_escaped(s):
     return ''.join(c if 32 <= ord(c) <= 126 else f'\\u{ord(c):04x}' for c in s)
 
 # ==========================================
-# BITTU__DEV : FORGE ENGINE
+# BITTU__DEV : FORGE ENGINE (V2)
 # ==========================================
 def execute_forge(region: str, name_pref: str):
     # 1. Exact 12-Character Name Generator
@@ -86,36 +84,52 @@ def execute_forge(region: str, name_pref: str):
     # 2. Setup Device & Password
     random_part = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(9)).upper()
     password = f"BITTU_{random_part}"
-    
-    ph = hashlib.sha256(password.encode()).hexdigest().upper()
-    data = f"password={password}&client_type=2&source=2&app_id=100067"
-    signature = hmac.new(aes_key, data.encode('utf-8'), hashlib.sha256).hexdigest()
 
-    # 3. Register Guest
-    reg_url = "https://100067.connect.garena.com/oauth/guest/register"
+    # 3. Register Guest (THE V2 BYPASS)
+    reg_url = "https://100067.connect.garena.com/api/v2/oauth/guest:register"
+    
+    reg_payload = {
+        "app_id": 100067, 
+        "client_type": 2, 
+        "password": password, 
+        "source": 2
+    }
+    
     reg_headers = {
-        "User-Agent": "GarenaMSDK/4.0.19P8(ASUS_Z01QD ;Android 12;en;US;)",
-        "Authorization": "Signature " + signature,
-        "Content-Type": "application/x-www-form-urlencoded",
+        "User-Agent": "garenaMSDK/4.0.39(SM-A325M;Android 13;en;HK;)",
+        "Accept": "application/json", 
+        "Content-Type": "application/json; charset=utf-8",
         "Accept-Encoding": "gzip",
         "Connection": "Keep-Alive"
     }
 
     try:
-        r1 = requests.post(reg_url, headers=reg_headers, data=data, verify=False, timeout=10)
+        r1 = requests.post(reg_url, headers=reg_headers, json=reg_payload, verify=False, timeout=10)
         if r1.status_code != 200:
             return {"error": f"Register Failed: {r1.text}"}
-        uid = r1.json().get('uid')
-        if not uid:
+        
+        res_json = r1.json()
+        if "data" in res_json and "uid" in res_json["data"]:
+            uid = res_json["data"]["uid"]
+        else:
             return {"error": "UID not returned in register payload."}
     except Exception as e:
         return {"error": f"Request Failed: {str(e)}"}
 
     # 4. Token Grant
     token_url = "https://100067.connect.garena.com/oauth/guest/token/grant"
+    
+    token_headers = {
+        "Accept-Encoding": "gzip",
+        "Connection": "Keep-Alive",
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Host": "100067.connect.garena.com",
+        "User-Agent": "GarenaMSDK/4.0.19P8(ASUS_Z01QD ;Android 12;en;US;)"
+    }
+    
     token_body = {
         "uid": uid,
-        "password": ph,
+        "password": password,
         "response_type": "token",
         "client_type": "2",
         "client_secret": aes_key,
@@ -123,7 +137,7 @@ def execute_forge(region: str, name_pref: str):
     }
     
     try:
-        r2 = requests.post(token_url, headers=reg_headers, data=token_body, verify=False, timeout=10)
+        r2 = requests.post(token_url, headers=token_headers, data=token_body, verify=False, timeout=10)
         if r2.status_code != 200:
             return {"error": f"Token Grant Failed: {r2.text}"}
             
@@ -194,7 +208,7 @@ def execute_forge(region: str, name_pref: str):
 # ==========================================
 @app.get("/api/gen")
 def api_generate_account(reg: str = "IND", name_pref: str = "BITTU"):
-    """Forge a new Free Fire Guest Account instantly."""
+    """Forge a new Free Fire Guest Account instantly using v2 Bypass."""
     
     result = execute_forge(reg.upper(), name_pref)
     
@@ -206,6 +220,6 @@ def api_generate_account(reg: str = "IND", name_pref: str = "BITTU"):
 @app.get("/")
 def root():
     return {
-        "status": "BITTU__DEV Forge API Live 💀",
+        "status": "BITTU__DEV Forge API Live (v2 Bypass Active) 💀",
         "endpoint": "/api/gen?reg=IND&name_pref=BITTU.DEV"
     }
