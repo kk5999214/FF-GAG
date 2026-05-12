@@ -18,9 +18,6 @@ app = FastAPI(
     version="4.0"
 )
 
-# CRITICAL: This stops Flask/FastAPI from sorting JSON alphabetically
-app.json.sort_keys = False 
-
 # ==========================================
 # BITTU__DEV : CORE ENCRYPTION
 # ==========================================
