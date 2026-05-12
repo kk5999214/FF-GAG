@@ -133,7 +133,7 @@ async def execute_forge(region: str, name_pref: str):
             if not uid: return {"error": "UID missing."}
         except Exception as e: return {"error": f"Request Failed: {str(e)}"}
 
-        # 2. Token Grant
+         # 2. Token Grant
         token_headers = {
             "Accept-Encoding": "gzip", "Connection": "Keep-Alive",
             "Content-Type": "application/x-www-form-urlencoded",
@@ -147,9 +147,23 @@ async def execute_forge(region: str, name_pref: str):
         
         try:
             r2 = await client.post("https://100067.connect.garena.com/oauth/guest/token/grant", headers=token_headers, data=token_body)
-            open_id = r2.json().get('open_id')
-            access_token = r2.json().get("access_token")
-        except Exception as e: return {"error": f"Token Grant Error: {str(e)}"}
+            r2_json = r2.json()
+            
+            # Check root level first (Old Garena Structure)
+            open_id = r2_json.get('open_id')
+            access_token = r2_json.get("access_token")
+            
+            # If not at root, check inside "data" wrapper (New Garena Structure)
+            if not open_id:
+                open_id = r2_json.get("data", {}).get("open_id")
+                access_token = r2_json.get("data", {}).get("access_token")
+                
+            # If it's STILL missing, Garena is throwing a silent error. Intercept it!
+            if not open_id:
+                return {"error": f"Token Grant Rejected. Garena replied with: {r2_json}"}
+                
+        except Exception as e: 
+            return {"error": f"Token Grant Request Failed: {str(e)}"}
 
         # 3. Major Register
         encoded_dict = encode_string(open_id)
