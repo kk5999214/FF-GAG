@@ -1,0 +1,5 @@
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+httpx==0.25.1
+pycryptodome==3.19.0
+urllib3==2.1.0
