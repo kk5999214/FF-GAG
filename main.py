@@ -13,8 +13,8 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 app = FastAPI(
     title="BITTU__DEV Ghost Factory",
-    description="High-Speed Asynchronous Auto-Activating Account Generator 💀",
-    version="3.0"
+    description="High-Speed Asynchronous Auto-Activating Account Generator (14-Region Edition) 💀",
+    version="4.0"
 )
 
 # ==========================================
@@ -76,21 +76,33 @@ def to_unicode_escaped(s):
     return ''.join(c if 32 <= ord(c) <= 126 else f'\\u{ord(c):04x}' for c in s)
 
 # ==========================================
-# 11-REGION ROUTING ARCHITECTURE
+# 14-REGION ROUTING ARCHITECTURE
 # ==========================================
 REGION_MAP = {
     "IND": {"login": "https://loginbp.ggpolarbear.com", "lang": "hi"},
     "BD":  {"login": "https://loginbp.ggpolarbear.com", "lang": "bn"},
-    "ME":  {"login": "https://loginbp.ggpolarbear.com", "lang": "ar"},
     "PK":  {"login": "https://loginbp.ggpolarbear.com", "lang": "ur"},
     "BR":  {"login": "https://loginbp.ggpolarbear.com", "lang": "pt"},
     "NA":  {"login": "https://loginbp.ggpolarbear.com", "lang": "en"},
     "VN":  {"login": "https://loginbp.ggpolarbear.com", "lang": "vi"},
     "SG":  {"login": "https://loginbp.ggpolarbear.com", "lang": "en"},
     "ID":  {"login": "https://loginbp.ggpolarbear.com", "lang": "id"},
-    "RU":  {"login": "https://loginbp.ggpolarbear.com", "lang": "ru"},
-    "TH":  {"login": "https://loginbp.ggpolarbear.com", "lang": "th"},
+    "CIS": {"login": "https://loginbp.ggpolarbear.com", "lang": "ru"},
+    "SAC": {"login": "https://loginbp.ggpolarbear.com", "lang": "es"},
+    "TW":  {"login": "https://loginbp.ggpolarbear.com", "lang": "zh"},
+    "ME":  {"login": "https://loginbp.common.ggbluefox.com", "lang": "ar"},
+    "TH":  {"login": "https://loginbp.common.ggbluefox.com", "lang": "th"},
     "GHOST": {"login": "https://loginbp.ggblueshark.com", "lang": "en"}
+}
+
+SPOOF_IPS = {
+    "IND": "103.111.41.25",   "BD": "103.149.72.10",
+    "ME": "40.172.186.73",    "PK": "180.178.133.185",
+    "BR": "202.181.70.6",     "NA": "167.7.252.185",
+    "VN": "115.74.34.12",     "SG": "202.81.108.101",
+    "ID": "140.213.14.88",    "CIS": "188.225.32.10",
+    "TH": "202.181.73.254",   "GHOST": "103.247.207.254",
+    "SAC": "190.160.0.1",     "TW": "114.32.0.1"
 }
 
 # ==========================================
@@ -103,6 +115,7 @@ async def execute_forge(region: str, name_pref: str):
     
     login_url = REGION_MAP[region_key]["login"]
     lang = REGION_MAP[region_key]["lang"]
+    target_ip = SPOOF_IPS.get(region_key, SPOOF_IPS["IND"])
 
     super_digits = '⁰¹²³⁴⁵⁶⁷⁸⁹'
     if len(name_pref) >= 12:
@@ -114,16 +127,17 @@ async def execute_forge(region: str, name_pref: str):
     random_part = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(9)).upper()
     password = f"BITTU__DEV-{random_part}"
 
-    # Asynchronous HTTP Client Context
     async with httpx.AsyncClient(verify=False, timeout=15.0) as client:
         
-        # 1. Register Guest (WAF Bypass)
+        # 1. Register Guest (With IP Spoofing)
         reg_url = "https://100067.connect.garena.com/api/v2/oauth/guest:register"
         reg_payload = {"app_id": 100067, "client_type": 2, "password": password, "source": 2}
         reg_headers = {
             "User-Agent": "garenaMSDK/4.0.39(SM-A325M;Android 13;en;HK;)",
             "Accept": "application/json", 
-            "Content-Type": "application/json; charset=utf-8"
+            "Content-Type": "application/json; charset=utf-8",
+            "X-Forwarded-For": target_ip,
+            "Client-IP": target_ip
         }
 
         try:
@@ -133,12 +147,14 @@ async def execute_forge(region: str, name_pref: str):
             if not uid: return {"error": "UID missing."}
         except Exception as e: return {"error": f"Request Failed: {str(e)}"}
 
-         # 2. Token Grant
+         # 2. Token Grant 
         token_headers = {
             "Accept-Encoding": "gzip", "Connection": "Keep-Alive",
             "Content-Type": "application/x-www-form-urlencoded",
             "Host": "100067.connect.garena.com",
-            "User-Agent": "GarenaMSDK/4.0.19P8(ASUS_Z01QD ;Android 12;en;US;)"
+            "User-Agent": "GarenaMSDK/4.0.19P8(ASUS_Z01QD ;Android 12;en;US;)",
+            "X-Forwarded-For": target_ip,
+            "Client-IP": target_ip
         }
         token_body = {
             "uid": uid, "password": password, "response_type": "token",
@@ -149,16 +165,13 @@ async def execute_forge(region: str, name_pref: str):
             r2 = await client.post("https://100067.connect.garena.com/oauth/guest/token/grant", headers=token_headers, data=token_body)
             r2_json = r2.json()
             
-            # Check root level first (Old Garena Structure)
             open_id = r2_json.get('open_id')
             access_token = r2_json.get("access_token")
             
-            # If not at root, check inside "data" wrapper (New Garena Structure)
             if not open_id:
                 open_id = r2_json.get("data", {}).get("open_id")
                 access_token = r2_json.get("data", {}).get("access_token")
                 
-            # If it's STILL missing, Garena is throwing a silent error. Intercept it!
             if not open_id:
                 return {"error": f"Token Grant Rejected. Garena replied with: {r2_json}"}
                 
@@ -180,14 +193,16 @@ async def execute_forge(region: str, name_pref: str):
             "Content-Type": "application/x-www-form-urlencoded", "Expect": "100-continue",
             "Host": login_url.replace("https://", ""), "ReleaseVersion": "OB53",
             "User-Agent": "Dalvik/2.1.0 (Linux; U; Android 9; ASUS_I005DA Build/PI)",
-            "X-GA": "v1 1", "X-Unity-Version": "2018.4."
+            "X-GA": "v1 1", "X-Unity-Version": "2018.4.",
+            "X-Forwarded-For": target_ip,
+            "Client-IP": target_ip
         }
 
         try:
             await client.post(f"{login_url}/MajorRegister", headers=major_headers, content=encrypted_payload)
         except: pass
 
-        # 4. Major Login (Auto-Activation)
+        # 4. Major Login
         login_payload_raw = b'\x1a\x132025-08-30 05:19:21"\tfree fire(\x01:\x081.114.13B2Android OS 9 / API-28 (PI/rel.cjw.20220518.114133)J\x08HandheldR\nATM MobilsZ\x04WIFI`\xb6\nh\xee\x05r\x03300z\x1fARMv7 VFPv3 NEON VMH | 2400 | 2\x80\x01\xc9\x0f\x8a\x01\x0fAdreno (TM) 640\x92\x01\rOpenGL ES 3.2\x9a\x01+Google|dfa4ab4b-9dc4-454e-8065-e70c733fa53f\xa2\x01\x0e105.235.139.91\xaa\x01\x02' + lang.encode("ascii") + b'\xb2\x01 1d8ec0240ede109973f3321b9354b44d\xba\x01\x014\xc2\x01\x08Handheld\xca\x01\x10Asus ASUS_I005DA\xea\x01@afcfbf13334be42036e4f742c80b956344bed760ac91b3aff9b607a610ab4390\xf0\x01\x01\xca\x02\nATM Mobils\xd2\x02\x04WIFI\xca\x03 7428b253defc164018c604a1ebbfebdf\xe0\x03\xa8\x81\x02\xe8\x03\xf6\xe5\x01\xf0\x03\xaf\x13\xf8\x03\x84\x07\x80\x04\xe7\xf0\x01\x88\x04\xa8\x81\x02\x90\x04\xe7\xf0\x01\x98\x04\xa8\x81\x02\xc8\x04\x01\xd2\x04=/data/app/com.dts.freefireth-PdeDnOilCSFn37p1AH_FLg==/lib/arm\xe0\x04\x01\xea\x04_2087f61c19f57f2af4e7feff0b24d9d9|/data/app/com.dts.freefireth-PdeDnOilCSFn37p1AH_FLg==/base.apk\xf0\x04\x03\xf8\x04\x01\x8a\x05\x0232\x9a\x05\n2019118692\xb2\x05\tOpenGLES2\xb8\x05\xff\x7f\xc0\x05\x04\xe0\x05\xf3F\xea\x05\x07android\xf2\x05pKqsHT5ZLWrYljNb5Vqh//yFRlaPHSO9NWSQsVvOmdhEEn7W+VHNUK+Q+fduA3ptNrGB0Ll0LRz3WW0jOwesLj6aiU7sZ40p8BfUE/FI/jzSTwRe2\xf8\x05\xfb\xe4\x06\x88\x06\x01\x90\x06\x01\x9a\x06\x014\xa2\x06\x014\xb2\x06"GQ@O\x00\x0e^\x00D\x06UA\x0ePM\r\x13hZ\x07T\x06\x0cm\\V\x0ejYV;\x0bU5'
         login_payload_raw = login_payload_raw.replace(b'afcfbf13334be42036e4f742c80b956344bed760ac91b3aff9b607a610ab4390', access_token.encode())
         login_payload_raw = login_payload_raw.replace(b'1d8ec0240ede109973f3321b9354b44d', open_id.encode())
@@ -209,10 +224,26 @@ async def execute_forge(region: str, name_pref: str):
         except Exception as e:
             jwt_token = f"ERROR: {str(e)}"
 
+        # 5. THE ULTIMATE REGION LOCK (/ChooseRegion) 💀
+        if jwt_token != "NOT_FOUND_OR_FAILED" and not jwt_token.startswith("ERROR"):
+            region_code = "RU" if region_key == "CIS" else region_key
+            
+            # Pack the region code into field 1 using Protobuf just like your activator
+            bind_payload = CrEaTe_ProTo({1: region_code}) 
+            final_bind_payload = bytes.fromhex(E_AEs(bind_payload.hex()).hex())
+            
+            bind_headers = major_headers.copy()
+            bind_headers["Authorization"] = f"Bearer {jwt_token}"
+            
+            try:
+                # Force Garena to permanently hard-lock the region for this JWT
+                await client.post(f"{login_url}/ChooseRegion", headers=bind_headers, content=final_bind_payload)
+            except Exception:
+                pass 
+
     # ==========================================
     # EXACT ORDERED JSON RESPONSE
     # ==========================================
-    # Dictionary insertion order is preserved in Python. FastAPI's JSONResponse respects it.
     return {
         "developer": "BITTU__DEV",
         "player_name": name,
@@ -235,7 +266,6 @@ async def api_generate_account(reg: str = "IND", name_pref: str = "BITTU"):
     result = await execute_forge(reg, name_pref)
     
     if "error" in result:
-        # Return error preserving structure or fallback
         return JSONResponse(content=result, status_code=500)
         
     return JSONResponse(content=result, status_code=200)
