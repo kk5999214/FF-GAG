@@ -95,16 +95,6 @@ REGION_MAP = {
     "GHOST": {"login": "https://loginbp.ggblueshark.com", "lang": "en"}
 }
 
-SPOOF_IPS = {
-    "IND": "103.111.41.25",   "BD": "103.149.72.10",
-    "ME": "40.172.186.73",    "PK": "180.178.133.185",
-    "BR": "202.181.70.6",     "NA": "167.7.252.185",
-    "VN": "115.74.34.12",     "SG": "202.81.108.101",
-    "ID": "140.213.14.88",    "CIS": "188.225.32.10",
-    "TH": "202.181.73.254",   "GHOST": "103.247.207.254",
-    "SAC": "190.160.0.1",     "TW": "114.32.0.1"
-}
-
 # ==========================================
 # BITTU__DEV : ASYNC FORGE ENGINE
 # ==========================================
@@ -115,7 +105,6 @@ async def execute_forge(region: str, name_pref: str):
     
     login_url = REGION_MAP[region_key]["login"]
     lang = REGION_MAP[region_key]["lang"]
-    target_ip = SPOOF_IPS.get(region_key, SPOOF_IPS["IND"])
 
     super_digits = '⁰¹²³⁴⁵⁶⁷⁸⁹'
     if len(name_pref) >= 12:
@@ -129,15 +118,15 @@ async def execute_forge(region: str, name_pref: str):
 
     async with httpx.AsyncClient(verify=False, timeout=15.0) as client:
         
-        # 1. Register Guest (With IP Spoofing)
+        # 1. Register Guest 🛡️
         reg_url = "https://100067.connect.garena.com/api/v2/oauth/guest:register"
         reg_payload = {"app_id": 100067, "client_type": 2, "password": password, "source": 2}
         reg_headers = {
             "User-Agent": "garenaMSDK/4.0.39(SM-A325M;Android 13;en;HK;)",
             "Accept": "application/json", 
             "Content-Type": "application/json; charset=utf-8",
-            "X-Forwarded-For": target_ip,
-            "Client-IP": target_ip
+            "Accept-Encoding": "gzip", 
+            "Connection": "Keep-Alive"
         }
 
         try:
@@ -152,9 +141,7 @@ async def execute_forge(region: str, name_pref: str):
             "Accept-Encoding": "gzip", "Connection": "Keep-Alive",
             "Content-Type": "application/x-www-form-urlencoded",
             "Host": "100067.connect.garena.com",
-            "User-Agent": "GarenaMSDK/4.0.19P8(ASUS_Z01QD ;Android 12;en;US;)",
-            "X-Forwarded-For": target_ip,
-            "Client-IP": target_ip
+            "User-Agent": "GarenaMSDK/4.0.19P8(ASUS_Z01QD ;Android 12;en;US;)"
         }
         token_body = {
             "uid": uid, "password": password, "response_type": "token",
@@ -193,9 +180,7 @@ async def execute_forge(region: str, name_pref: str):
             "Content-Type": "application/x-www-form-urlencoded", "Expect": "100-continue",
             "Host": login_url.replace("https://", ""), "ReleaseVersion": "OB53",
             "User-Agent": "Dalvik/2.1.0 (Linux; U; Android 9; ASUS_I005DA Build/PI)",
-            "X-GA": "v1 1", "X-Unity-Version": "2018.4.",
-            "X-Forwarded-For": target_ip,
-            "Client-IP": target_ip
+            "X-GA": "v1 1", "X-Unity-Version": "2018.4.11f1"
         }
 
         try:
@@ -224,20 +209,20 @@ async def execute_forge(region: str, name_pref: str):
         except Exception as e:
             jwt_token = f"ERROR: {str(e)}"
 
-        # 5. THE ULTIMATE REGION LOCK (/ChooseRegion) 💀
-        if jwt_token != "NOT_FOUND_OR_FAILED" and not jwt_token.startswith("ERROR"):
+        # 5. THE ULTIMATE REGION LOCK 💀
+        if jwt_token != "NOT_FOUND_OR_FAILED" and not jwt_token.startswith("ERROR") and region_key != "BR":
             region_code = "RU" if region_key == "CIS" else region_key
             
-            # Pack the region code into field 1 using Protobuf just like your activator
             bind_payload = CrEaTe_ProTo({1: region_code}) 
             final_bind_payload = bytes.fromhex(E_AEs(bind_payload.hex()).hex())
             
             bind_headers = major_headers.copy()
             bind_headers["Authorization"] = f"Bearer {jwt_token}"
+            bind_headers["User-Agent"] = "Dalvik/2.1.0 (Linux; U; Android 12; M2101K7AG Build/SKQ1.210908.001)" 
             
             try:
-                # Force Garena to permanently hard-lock the region for this JWT
-                await client.post(f"{login_url}/ChooseRegion", headers=bind_headers, content=final_bind_payload)
+                choose_url = f"{login_url}/ChooseRegion"
+                await client.post(choose_url, headers=bind_headers, content=final_bind_payload)
             except Exception:
                 pass 
 
